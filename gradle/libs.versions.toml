@@ -1,0 +1,89 @@
+[versions]
+agp                     = "8.5.2"
+kotlin                  = "2.0.21"
+coreKtx                 = "1.13.1"
+lifecycleRuntimeKtx     = "2.8.6"
+activityCompose         = "1.9.2"
+composeBom              = "2024.09.03"
+navigationCompose       = "2.8.2"
+hilt                    = "2.51.1"
+hiltNavCompose          = "1.2.0"
+firebaseBom             = "33.4.0"
+coroutines              = "1.9.0"
+kotlinSerialization     = "1.7.3"
+datastore               = "1.1.1"
+workManager             = "2.9.1"
+hiltWork                = "1.2.0"
+accompanist             = "0.36.0"
+coil                    = "2.7.0"
+junitVersion            = "4.13.2"
+androidxJunit           = "1.2.1"
+espresso                = "3.6.1"
+material3               = "1.3.0"
+splashscreen            = "1.0.1"
+
+[libraries]
+# AndroidX Core
+androidx-core-ktx               = { group = "androidx.core",             name = "core-ktx",                      version.ref = "coreKtx" }
+androidx-lifecycle-runtime-ktx  = { group = "androidx.lifecycle",        name = "lifecycle-runtime-ktx",         version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-viewmodel    = { group = "androidx.lifecycle",        name = "lifecycle-viewmodel-compose",   version.ref = "lifecycleRuntimeKtx" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle",     name = "lifecycle-runtime-compose",     version.ref = "lifecycleRuntimeKtx" }
+androidx-activity-compose       = { group = "androidx.activity",         name = "activity-compose",              version.ref = "activityCompose" }
+androidx-splashscreen           = { group = "androidx.core",             name = "core-splashscreen",             version.ref = "splashscreen" }
+
+# Compose BOM
+androidx-compose-bom            = { group = "androidx.compose",          name = "compose-bom",                   version.ref = "composeBom" }
+androidx-ui                     = { group = "androidx.compose.ui",       name = "ui" }
+androidx-ui-graphics            = { group = "androidx.compose.ui",       name = "ui-graphics" }
+androidx-ui-tooling             = { group = "androidx.compose.ui",       name = "ui-tooling" }
+androidx-ui-tooling-preview     = { group = "androidx.compose.ui",       name = "ui-tooling-preview" }
+androidx-ui-test-manifest       = { group = "androidx.compose.ui",       name = "ui-test-manifest" }
+androidx-ui-test-junit4         = { group = "androidx.compose.ui",       name = "ui-test-junit4" }
+androidx-material3              = { group = "androidx.compose.material3", name = "material3",                    version.ref = "material3" }
+androidx-material-icons         = { group = "androidx.compose.material", name = "material-icons-extended" }
+
+# Navigation
+androidx-navigation-compose     = { group = "androidx.navigation",       name = "navigation-compose",            version.ref = "navigationCompose" }
+
+# Hilt DI
+hilt-android                    = { group = "com.google.dagger",         name = "hilt-android",                  version.ref = "hilt" }
+hilt-compiler                   = { group = "com.google.dagger",         name = "hilt-android-compiler",         version.ref = "hilt" }
+hilt-navigation-compose         = { group = "androidx.hilt",             name = "hilt-navigation-compose",       version.ref = "hiltNavCompose" }
+hilt-work                       = { group = "androidx.hilt",             name = "hilt-work",                     version.ref = "hiltWork" }
+hilt-work-compiler              = { group = "androidx.hilt",             name = "hilt-compiler",                 version.ref = "hiltWork" }
+
+# Firebase BOM
+firebase-bom                    = { group = "com.google.firebase",       name = "firebase-bom",                  version.ref = "firebaseBom" }
+firebase-auth                   = { group = "com.google.firebase",       name = "firebase-auth-ktx" }
+firebase-firestore              = { group = "com.google.firebase",       name = "firebase-firestore-ktx" }
+firebase-analytics              = { group = "com.google.firebase",       name = "firebase-analytics-ktx" }
+
+# Coroutines
+kotlinx-coroutines-android      = { group = "org.jetbrains.kotlinx",     name = "kotlinx-coroutines-android",    version.ref = "coroutines" }
+kotlinx-coroutines-play-services= { group = "org.jetbrains.kotlinx",     name = "kotlinx-coroutines-play-services", version.ref = "coroutines" }
+
+# Serialization
+kotlinx-serialization-json      = { group = "org.jetbrains.kotlinx",     name = "kotlinx-serialization-json",    version.ref = "kotlinSerialization" }
+
+# DataStore
+androidx-datastore-prefs        = { group = "androidx.datastore",        name = "datastore-preferences",         version.ref = "datastore" }
+
+# WorkManager
+androidx-work-runtime           = { group = "androidx.work",             name = "work-runtime-ktx",              version.ref = "workManager" }
+
+# Coil image loading
+coil-compose                    = { group = "io.coil-kt",                name = "coil-compose",                  version.ref = "coil" }
+
+
+# Testing
+junit                           = { group = "junit",                     name = "junit",                         version.ref = "junitVersion" }
+androidx-junit                  = { group = "androidx.test.ext",         name = "junit",                         version.ref = "androidxJunit" }
+androidx-espresso-core          = { group = "androidx.test.espresso",    name = "espresso-core",                 version.ref = "espresso" }
+
+[plugins]
+android-application     = { id = "com.android.application",                        version.ref = "agp" }
+kotlin-android          = { id = "org.jetbrains.kotlin.android",                   version.ref = "kotlin" }
+kotlin-compose          = { id = "org.jetbrains.kotlin.plugin.compose",            version.ref = "kotlin" }
+hilt-android            = { id = "com.google.dagger.hilt.android",                 version.ref = "hilt" }
+google-services = { id = "com.google.gms.google-services", version = "4.4.2" }
+kotlin-serialization    = { id = "org.jetbrains.kotlin.plugin.serialization",      version.ref = "kotlin" }
