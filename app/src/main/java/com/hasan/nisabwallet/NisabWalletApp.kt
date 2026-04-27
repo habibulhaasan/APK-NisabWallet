@@ -20,13 +20,8 @@ class NisabWalletApp : Application(), Configuration.Provider {
         initFirestore()
     }
 
-    /**
-     * Enable Firestore offline persistence with unlimited cache.
-     * This is the cornerstone of our offline-first strategy.
-     * All reads will be served from local cache when offline,
-     * and writes will be queued and synced on reconnection.
-     */
     private fun initFirestore() {
+        // FIX: Use the new cache API (the old setCacheSizeBytes is deprecated in newer SDKs)
         val settings = FirebaseFirestoreSettings.Builder()
             .setLocalCacheSettings(
                 PersistentCacheSettings.newBuilder()
@@ -35,9 +30,13 @@ class NisabWalletApp : Application(), Configuration.Provider {
             )
             .build()
         FirebaseFirestore.getInstance().firestoreSettings = settings
+
+        // FIX: Enable network logging in debug builds to catch silent failures
+        if (BuildConfig.DEBUG) {
+            FirebaseFirestore.setLoggingEnabled(true)
+        }
     }
 
-    // Hilt-integrated WorkManager configuration
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)

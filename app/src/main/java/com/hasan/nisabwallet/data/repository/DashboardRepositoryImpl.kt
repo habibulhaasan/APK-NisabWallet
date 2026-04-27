@@ -15,7 +15,7 @@ class DashboardRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : DashboardRepository {
 
-    // ── Real-time flows ───────────────────────────────────────────────────────
+    // Real-time flows are fine as-is — Firestore handles these efficiently
 
     override fun getAccountsFlow(userId: String): Flow<List<Account>> =
         FirestorePaths.accounts(db, userId)
@@ -23,11 +23,9 @@ class DashboardRepositoryImpl @Inject constructor(
             .map { snap ->
                 snap.documents.mapNotNull { it.toObject(Account::class.java)?.copy(id = it.id) }
             }
+            .flowOn(Dispatchers.Default) // Move mapping off main thread
 
-    override fun getRecentTransactionsFlow(
-        userId: String,
-        limit: Int
-    ): Flow<List<Transaction>> =
+    override fun getRecentTransactionsFlow(userId: String, limit: Int): Flow<List<Transaction>> =
         FirestorePaths.transactions(db, userId)
             .orderBy("date", Query.Direction.DESCENDING)
             .limit(limit.toLong())
@@ -35,102 +33,111 @@ class DashboardRepositoryImpl @Inject constructor(
             .map { snap ->
                 snap.documents.mapNotNull { it.toObject(Transaction::class.java)?.copy(id = it.id) }
             }
+            .flowOn(Dispatchers.Default)
 
-    // ── Monthly totals ────────────────────────────────────────────────────────
+    override suspend fun getMonthlyIncome(userId: String, year: Int, month: Int): Double =
+        withContext(Dispatchers.IO) {
+            val (start, end) = monthRange(year, month)
+            FirestorePaths.transactions(db, userId)
+                .whereEqualTo("type", "Income")
+                .whereGreaterThanOrEqualTo("date", start)
+                .whereLessThan("date", end) // FIX: use strict less-than on first day of NEXT month
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("amount") ?: 0.0 }
+        }
 
-    override suspend fun getMonthlyIncome(userId: String, year: Int, month: Int): Double {
-        val (start, end) = monthRange(year, month)
-        return FirestorePaths.transactions(db, userId)
-            .whereEqualTo("type", "Income")
-            .whereGreaterThanOrEqualTo("date", start)
-            .whereLessThanOrEqualTo("date", end)
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("amount") ?: 0.0 }
-    }
-
-    override suspend fun getMonthlyExpense(userId: String, year: Int, month: Int): Double {
-        val (start, end) = monthRange(year, month)
-        return FirestorePaths.transactions(db, userId)
-            .whereEqualTo("type", "Expense")
-            .whereGreaterThanOrEqualTo("date", start)
-            .whereLessThanOrEqualTo("date", end)
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("amount") ?: 0.0 }
-    }
-
-    // ── Feature module totals (one-shot) ──────────────────────────────────────
+    override suspend fun getMonthlyExpense(userId: String, year: Int, month: Int): Double =
+        withContext(Dispatchers.IO) {
+            val (start, end) = monthRange(year, month)
+            FirestorePaths.transactions(db, userId)
+                .whereEqualTo("type", "Expense")
+                .whereGreaterThanOrEqualTo("date", start)
+                .whereLessThan("date", end)
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("amount") ?: 0.0 }
+        }
 
     override suspend fun getActiveLoansTotal(userId: String): Double =
-        FirestorePaths.loans(db, userId)
-            .whereEqualTo("status", "active")
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("remainingBalance") ?: it.getDouble("principalAmount") ?: 0.0 }
+        withContext(Dispatchers.IO) {
+            FirestorePaths.loans(db, userId)
+                .whereEqualTo("status", "active")
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("remainingBalance") ?: it.getDouble("principalAmount") ?: 0.0 }
+        }
 
     override suspend fun getActiveLendingsTotal(userId: String): Double =
-        FirestorePaths.lendings(db, userId)
-            .whereEqualTo("status", "active")
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("remainingAmount") ?: it.getDouble("amount") ?: 0.0 }
+        withContext(Dispatchers.IO) {
+            FirestorePaths.lendings(db, userId)
+                .whereEqualTo("status", "active")
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("remainingAmount") ?: it.getDouble("amount") ?: 0.0 }
+        }
 
     override suspend fun getGoalsTotal(userId: String): Double =
-        FirestorePaths.financialGoals(db, userId)
-            .whereEqualTo("status", "active")
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("currentAmount") ?: 0.0 }
+        withContext(Dispatchers.IO) {
+            FirestorePaths.financialGoals(db, userId)
+                .whereEqualTo("status", "active")
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("currentAmount") ?: 0.0 }
+        }
 
     override suspend fun getInvestmentsTotal(userId: String): Double =
-        FirestorePaths.investments(db, userId)
-            .whereEqualTo("status", "active")
-            .get().await()
-            .documents
-            .sumOf { doc ->
-                val qty     = doc.getDouble("quantity") ?: 1.0
-                val curVal  = doc.getDouble("currentValue") ?: 0.0
-                qty * curVal
-            }
+        withContext(Dispatchers.IO) {
+            FirestorePaths.investments(db, userId)
+                .whereEqualTo("status", "active")
+                .get().await()
+                .documents
+                .sumOf { doc ->
+                    val qty    = doc.getDouble("quantity") ?: 1.0
+                    val curVal = doc.getDouble("currentValue") ?: 0.0
+                    qty * curVal
+                }
+        }
 
     override suspend fun getJewelleryTotal(userId: String): Double =
-        FirestorePaths.jewellery(db, userId)
-            .get().await()
-            .documents
-            .sumOf { it.getDouble("marketValue") ?: 0.0 }
+        withContext(Dispatchers.IO) {
+            FirestorePaths.jewellery(db, userId)
+                .get().await()
+                .documents
+                .sumOf { it.getDouble("marketValue") ?: 0.0 }
+        }
 
-    // ── Zakat ─────────────────────────────────────────────────────────────────
+    override suspend fun getActiveZakatCycle(userId: String): ZakatCycleSummary? =
+        withContext(Dispatchers.IO) {
+            val snap = FirestorePaths.zakatCycles(db, userId)
+                .whereEqualTo("status", "active")
+                .limit(1)
+                .get().await()
+            if (snap.isEmpty) return@withContext null
+            val doc = snap.documents.first()
+            ZakatCycleSummary(
+                cycleId        = doc.id,
+                startDate      = doc.getString("startDate") ?: "",
+                status         = doc.getString("status") ?: "",
+                startWealth    = doc.getDouble("startWealth") ?: 0.0,
+                nisabThreshold = doc.getDouble("nisabThreshold") ?: 0.0
+            )
+        }
 
-    override suspend fun getActiveZakatCycle(userId: String): ZakatCycleSummary? {
-        val snap = FirestorePaths.zakatCycles(db, userId)
-            .whereEqualTo("status", "active")
-            .limit(1)
-            .get().await()
-        if (snap.isEmpty) return null
-        val doc = snap.documents.first()
-        return ZakatCycleSummary(
-            cycleId        = doc.id,
-            startDate      = doc.getString("startDate") ?: "",
-            status         = doc.getString("status") ?: "",
-            startWealth    = doc.getDouble("startWealth") ?: 0.0,
-            nisabThreshold = doc.getDouble("nisabThreshold") ?: 0.0
-        )
-    }
+    override suspend fun getNisabThreshold(userId: String): Double =
+        withContext(Dispatchers.IO) {
+            val snap = FirestorePaths.settings(db, userId).get().await()
+            if (snap.isEmpty) return@withContext 0.0
+            snap.documents
+                .firstOrNull { it.contains("nisabThreshold") }
+                ?.getDouble("nisabThreshold") ?: 0.0
+        }
 
-    override suspend fun getNisabThreshold(userId: String): Double {
-        val snap = FirestorePaths.settings(db, userId).get().await()
-        if (snap.isEmpty) return 0.0
-        return snap.documents
-            .firstOrNull { it.contains("nisabThreshold") }
-            ?.getDouble("nisabThreshold") ?: 0.0
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
+    // FIX: Use first day of next month as exclusive upper bound
+    // This correctly handles Feb (28/29 days), Apr/Jun/Sep/Nov (30 days)
     private fun monthRange(year: Int, month: Int): Pair<String, String> {
-        val start = "%04d-%02d-01".format(year, month)
-        val end   = "%04d-%02d-31".format(year, month)
-        return start to end
+        val startDate = LocalDate.of(year, month, 1)
+        val endDate   = startDate.plusMonths(1) // First day of next month
+        return startDate.toString() to endDate.toString()
     }
 }

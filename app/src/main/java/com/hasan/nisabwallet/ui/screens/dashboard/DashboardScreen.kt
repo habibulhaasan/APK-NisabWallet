@@ -111,39 +111,67 @@ fun DashboardScreen(
                 // ── Zakat widget ──────────────────────────────────────────
                 item { ZakatWidget(uiState, onClick = { navController.navigate(Screen.Zakat.route) }) }
 
-                // ── Quick actions ─────────────────────────────────────────
                 item {
-                    Text("Quick actions", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp))
-                }
-                item {
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        val actions = listOf(
-                            Triple(Icons.Default.Add,            "Add Txn",     Screen.Transactions.route),
-                            Triple(Icons.Default.SwapHoriz,      "Transfer",    Screen.Transfer.route),
-                            Triple(Icons.Default.AccountBalance, "Accounts",    Screen.Accounts.route),
-                            Triple(Icons.Default.BarChart,       "Analytics",   Screen.Analytics.route),
-                            Triple(Icons.Default.ShoppingCart,   "Shopping",    Screen.Shopping.route),
-                            Triple(Icons.Default.Star,           "Zakat",       Screen.Zakat.route),
-                            Triple(Icons.Default.TrendingUp,     "Invest",      Screen.Investments.route),
-                            Triple(Icons.Default.Diamond,        "Jewellery",   Screen.Jewellery.route),
+                        Text(
+                            "Quick actions",
+                            style      = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier   = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
                         )
-                        items(actions) { (icon, label, route) ->
-                            Column(horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier.clip(RoundedCornerShape(14.dp))
-                                    .clickable { navController.navigate(route) }
-                                    .padding(8.dp).width(64.dp)) {
-                                Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp))
-                                    .background(MaterialTheme.colorScheme.primaryContainer), Alignment.Center) {
-                                    Icon(icon, null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
+                    }
+                item {
+                        // Only show the actions most likely to be tapped daily
+                        // Navigation to full feature screens is now via bottom bar → More
+                        LazyRow(
+                            contentPadding        = PaddingValues(horizontal = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            val actions = listOf(
+                                Triple(Icons.Default.Add,          "Add Income",  "income"),
+                                Triple(Icons.Default.Remove,       "Add Expense", "expense"),
+                                Triple(Icons.Default.SwapHoriz,    "Transfer",    Screen.Transactions.route + "?tab=transfer"),
+                                Triple(Icons.Default.BarChart,     "Analytics",   Screen.Analytics.route),
+                                Triple(Icons.Default.Star,         "Zakat",       Screen.Zakat.route),
+                                Triple(Icons.Default.Repeat,       "Recurring",   Screen.Recurring.route),
+                            )
+                            items(actions) { (icon, label, action) ->
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(14.dp))
+                                        .clickable {
+                                            when (action) {
+                                                "income"  -> navController.navigate(Screen.Transactions.route)
+                                                "expense" -> navController.navigate(Screen.Transactions.route)
+                                                else      -> navController.navigate(action)
+                                            }
+                                        }
+                                        .padding(8.dp)
+                                        .width(64.dp)
+                                ) {
+                                    Box(
+                                        Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer),
+                                        Alignment.Center
+                                    ) {
+                                        Icon(icon, null, Modifier.size(22.dp),
+                                            tint = MaterialTheme.colorScheme.primary)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Text(
+                                        label,
+                                        style     = MaterialTheme.typography.labelSmall,
+                                        fontSize  = 10.sp,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        color     = MaterialTheme.colorScheme.onSurface,
+                                        maxLines  = 2
+                                    )
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                Text(label, style = MaterialTheme.typography.labelSmall, fontSize = 10.sp,
-                                    textAlign = TextAlign.Center, color = MaterialTheme.colorScheme.onSurface, maxLines = 2)
                             }
                         }
                     }
-                }
 
                 // ── Accounts strip ────────────────────────────────────────
                 if (uiState.accounts.isNotEmpty()) {

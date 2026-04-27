@@ -82,4 +82,18 @@ object FirestorePaths {
 
     fun userDocument(db: FirebaseFirestore, userId: String) =
         db.collection("users").document(userId)
+
+    // In FirestorePaths.kt — add these two functions
+
+    fun expenseTrackerTabs(db: FirebaseFirestore, userId: String) =
+        db.collection("users").document(userId).collection("expenseTrackerTabs")
+
+    fun expenseTrackerData(db: FirebaseFirestore, userId: String) =
+        db.collection("users").document(userId).collection("expenseTrackerData")
+
+    fun groceryItems(db: FirebaseFirestore, userId: String) =
+        db.collection("users").document(userId).collection("groceryItems")
+
+    fun groceryMonths(db: FirebaseFirestore, userId: String) =
+        db.collection("users").document(userId).collection("groceryMonths")
 }

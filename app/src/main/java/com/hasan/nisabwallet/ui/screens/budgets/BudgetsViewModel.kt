@@ -49,8 +49,10 @@ class BudgetsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(BudgetsUiState())
     val uiState = _uiState.asStateFlow()
-
     private val userId get() = auth.currentUser?.uid ?: ""
+
+    // Track the active budget observation job so we can cancel it before starting a new one
+    private var budgetObserverJob: Job? = null
 
     init {
         observeCategories()
@@ -69,22 +71,23 @@ class BudgetsViewModel @Inject constructor(
     }
 
     private fun observeBudgets() {
-        viewModelScope.launch {
-            val s = _uiState.value
-            budgetRepo.getBudgetsFlow(userId, s.selectedYear, s.selectedMonth)
-                .onEach { budgets ->
-                    val spent = _uiState.value.spentMap
-                    val enriched = budgets.map { b -> b.copy(spent = spent[b.categoryId] ?: 0.0) }
-                    _uiState.value = _uiState.value.copy(
-                        budgets       = enriched,
-                        totalBudgeted = enriched.sumOf { it.amount },
-                        totalSpent    = enriched.sumOf { it.spent },
-                        isLoading     = false
-                    )
-                }
-                .catch { _uiState.value = _uiState.value.copy(isLoading = false) }
-                .collect()
-        }
+        // Cancel the previous collector before starting a new one
+        budgetObserverJob?.cancel()
+
+        val s = _uiState.value
+        budgetObserverJob = budgetRepo.getBudgetsFlow(userId, s.selectedYear, s.selectedMonth)
+            .onEach { budgets ->
+                val spent    = _uiState.value.spentMap
+                val enriched = budgets.map { b -> b.copy(spent = spent[b.categoryId] ?: 0.0) }
+                _uiState.value = _uiState.value.copy(
+                    budgets       = enriched,
+                    totalBudgeted = enriched.sumOf { it.amount },
+                    totalSpent    = enriched.sumOf { it.spent },
+                    isLoading     = false
+                )
+            }
+            .catch { _uiState.value = _uiState.value.copy(isLoading = false) }
+            .launchIn(viewModelScope)
     }
 
     private fun loadSpent() {
@@ -101,6 +104,26 @@ class BudgetsViewModel @Inject constructor(
             )
         }
     }
+
+    fun prevMonth() = changeMonth(-1)
+    fun nextMonth() = changeMonth(1)
+
+    private fun changeMonth(delta: Int) {
+        val s = _uiState.value
+        val d = LocalDate.of(s.selectedYear, s.selectedMonth, 1).plusMonths(delta.toLong())
+        _uiState.value = s.copy(
+            selectedYear  = d.year,
+            selectedMonth = d.monthValue,
+            isLoading     = true,
+            budgets       = emptyList() // Clear stale data immediately
+        )
+        // observeBudgets() now safely cancels the previous Job before starting the new one
+        observeBudgets()
+        loadSpent()
+    }
+
+}
+
 
     // ── Month navigation ──────────────────────────────────────────────────────
 

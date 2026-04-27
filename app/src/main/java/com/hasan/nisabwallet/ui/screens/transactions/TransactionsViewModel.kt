@@ -53,30 +53,47 @@ class TransactionsViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(TransactionsUiState())
     val uiState = _uiState.asStateFlow()
-
     private val userId get() = auth.currentUser?.uid ?: ""
+
+    // Separate state flows so we can combine + debounce them
+    private val _allTransactions = MutableStateFlow<List<Transaction>>(emptyList())
+    private val _filter          = MutableStateFlow(TransactionFilter())
 
     init {
         observeTransactions()
         observeAccounts()
         observeCategories()
+        observeFilteredResults()
     }
-
-    // ── Real-time observers ───────────────────────────────────────────────────
 
     private fun observeTransactions() {
         transactionRepo.getTransactionsFlow(userId)
             .onEach { txns ->
-                val filtered = applyFilter(txns, _uiState.value.filter)
+                _allTransactions.value = txns
                 _uiState.value = _uiState.value.copy(
-                    allTransactions      = txns,
-                    filteredTransactions = filtered,
-                    totalIncome          = filtered.filter { it.isIncome  }.sumOf { it.amount },
-                    totalExpense         = filtered.filter { it.isExpense }.sumOf { it.amount },
-                    isLoading            = false
+                    allTransactions = txns,
+                    isLoading       = false
                 )
             }
             .catch { e -> _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.message) }
+            .launchIn(viewModelScope)
+    }
+
+    // Combine the raw list + filter, debounce search input, run on Default dispatcher
+    private fun observeFilteredResults() {
+        combine(_allTransactions, _filter) { txns, filter -> txns to filter }
+            .debounce(150L) // Prevents jank during fast filter changes or search typing
+            .map { (txns, filter) ->
+                // Move filtering to background thread — never blocks the UI
+                withContext(Dispatchers.Default) { applyFilter(txns, filter) }
+            }
+            .onEach { filtered ->
+                _uiState.value = _uiState.value.copy(
+                    filteredTransactions = filtered,
+                    totalIncome          = filtered.filter { it.isIncome  }.sumOf { it.amount },
+                    totalExpense         = filtered.filter { it.isExpense }.sumOf { it.amount }
+                )
+            }
             .launchIn(viewModelScope)
     }
 
@@ -99,37 +116,27 @@ class TransactionsViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    // ── Filter ────────────────────────────────────────────────────────────────
-
     fun updateFilter(filter: TransactionFilter) {
-        val filtered = applyFilter(_uiState.value.allTransactions, filter)
-        _uiState.value = _uiState.value.copy(
-            filter               = filter,
-            filteredTransactions = filtered,
-            totalIncome          = filtered.filter { it.isIncome  }.sumOf { it.amount },
-            totalExpense         = filtered.filter { it.isExpense }.sumOf { it.amount }
-        )
+        _filter.value  = filter
+        _uiState.value = _uiState.value.copy(filter = filter)
     }
 
     fun clearFilter() = updateFilter(TransactionFilter())
 
-    private fun applyFilter(
-        txns: List<Transaction>,
-        filter: TransactionFilter
-    ): List<Transaction> = txns.filter { t ->
-        (filter.type       == "All" || t.type       == filter.type) &&
-        (filter.categoryId.isEmpty() || t.categoryId == filter.categoryId) &&
-        (filter.accountId.isEmpty()  || t.accountId  == filter.accountId) &&
-        (filter.startDate.isEmpty()  || t.date >= filter.startDate) &&
-        (filter.endDate.isEmpty()    || t.date <= filter.endDate) &&
-        (filter.searchQuery.isEmpty() ||
-            t.description.contains(filter.searchQuery, ignoreCase = true) ||
-            t.categoryName.contains(filter.searchQuery, ignoreCase = true) ||
-            t.accountName.contains(filter.searchQuery, ignoreCase = true))
-    }
+    private fun applyFilter(txns: List<Transaction>, filter: TransactionFilter): List<Transaction> =
+        txns.filter { t ->
+            (filter.type       == "All" || t.type       == filter.type) &&
+            (filter.categoryId.isEmpty() || t.categoryId == filter.categoryId) &&
+            (filter.accountId.isEmpty()  || t.accountId  == filter.accountId) &&
+            (filter.startDate.isEmpty()  || t.date >= filter.startDate) &&
+            (filter.endDate.isEmpty()    || t.date <= filter.endDate) &&
+            (filter.searchQuery.isEmpty() ||
+                t.description.contains(filter.searchQuery, ignoreCase = true) ||
+                t.categoryName.contains(filter.searchQuery, ignoreCase = true) ||
+                t.accountName.contains(filter.searchQuery, ignoreCase = true))
+        }
 
-    // ── Form state ────────────────────────────────────────────────────────────
-
+    // All form and CRUD functions remain exactly the same as before
     fun showAddForm(type: String = "Expense") {
         val accounts = _uiState.value.accounts
         _uiState.value = _uiState.value.copy(
@@ -175,7 +182,6 @@ class TransactionsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(errorMessage = null, successMessage = null)
     }
 
-    // Form field setters
     fun onTypeChange(v: String)        { _uiState.value = _uiState.value.copy(formType = v, formCategoryId = "") }
     fun onAmountChange(v: String)      { _uiState.value = _uiState.value.copy(formAmount = v) }
     fun onAccountChange(v: String)     { _uiState.value = _uiState.value.copy(formAccountId = v) }
@@ -183,10 +189,8 @@ class TransactionsViewModel @Inject constructor(
     fun onDescriptionChange(v: String) { _uiState.value = _uiState.value.copy(formDescription = v) }
     fun onDateChange(v: String)        { _uiState.value = _uiState.value.copy(formDate = v) }
 
-    // ── CRUD ──────────────────────────────────────────────────────────────────
-
     fun saveTransaction() {
-        val s = _uiState.value
+        val s      = _uiState.value
         val amount = s.formAmount.toDoubleOrNull()
         when {
             amount == null || amount <= 0 -> { _uiState.value = s.copy(errorMessage = "Enter a valid amount"); return }
@@ -194,11 +198,9 @@ class TransactionsViewModel @Inject constructor(
             s.formCategoryId.isEmpty()    -> { _uiState.value = s.copy(errorMessage = "Select a category"); return }
             s.formDate.isEmpty()          -> { _uiState.value = s.copy(errorMessage = "Select a date"); return }
         }
-
         val account  = s.accounts.find { it.id == s.formAccountId } ?: return
         val category = s.categories.find { it.id == s.formCategoryId } ?: return
 
-        // Guard: prevent overdraft below 0 for expense
         if (s.editingTransaction == null && s.formType == "Expense" && amount!! > account.balance) {
             _uiState.value = s.copy(errorMessage = "Insufficient balance in ${account.name}")
             return
@@ -206,7 +208,6 @@ class TransactionsViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
-
             val txn = Transaction(
                 id           = s.editingTransaction?.id ?: "",
                 type         = s.formType,
@@ -220,24 +221,19 @@ class TransactionsViewModel @Inject constructor(
                 date         = s.formDate,
                 isRiba       = category.isRiba
             )
-
             val result = if (s.editingTransaction == null) {
                 transactionRepo.addTransaction(userId, txn, account.balance, category.isRiba)
                     .let { if (it is Result.Success) Result.Success(Unit) else it as Result<Unit> }
             } else {
                 transactionRepo.updateTransaction(userId, s.editingTransaction.id, txn, s.editingTransaction, account.balance)
             }
-
             when (result) {
                 is Result.Success -> _uiState.value = _uiState.value.copy(
                     isSaving       = false,
                     showFormSheet  = false,
                     successMessage = if (s.editingTransaction == null) "Transaction added" else "Transaction updated"
                 )
-                is Result.Error   -> _uiState.value = _uiState.value.copy(
-                    isSaving     = false,
-                    errorMessage = result.message
-                )
+                is Result.Error   -> _uiState.value = _uiState.value.copy(isSaving = false, errorMessage = result.message)
                 else -> Unit
             }
         }
@@ -246,20 +242,14 @@ class TransactionsViewModel @Inject constructor(
     fun deleteTransaction() {
         val txn     = _uiState.value.deletingTransaction ?: return
         val account = _uiState.value.accounts.find { it.id == txn.accountId } ?: return
-
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true)
             when (val r = transactionRepo.deleteTransaction(userId, txn.id, txn, account.balance)) {
                 is Result.Success -> _uiState.value = _uiState.value.copy(
-                    isSaving         = false,
-                    showDeleteDialog = false,
-                    deletingTransaction = null,
-                    successMessage   = "Transaction deleted"
+                    isSaving = false, showDeleteDialog = false,
+                    deletingTransaction = null, successMessage = "Transaction deleted"
                 )
-                is Result.Error   -> _uiState.value = _uiState.value.copy(
-                    isSaving     = false,
-                    errorMessage = r.message
-                )
+                is Result.Error   -> _uiState.value = _uiState.value.copy(isSaving = false, errorMessage = r.message)
                 else -> Unit
             }
         }

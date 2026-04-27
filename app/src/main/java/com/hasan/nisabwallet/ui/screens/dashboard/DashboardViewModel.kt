@@ -62,24 +62,23 @@ class DashboardViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
-
     private val userId get() = auth.currentUser?.uid ?: ""
+
+    // Track when one-time data was last loaded to avoid redundant fetches
+    private var lastOneTimeLoadMs = 0L
+    private val CACHE_TTL_MS = 5 * 60 * 1000L // 5 minutes
 
     init {
         val user = auth.currentUser
         _uiState.value = _uiState.value.copy(
             userName     = user?.displayName ?: user?.email?.substringBefore("@") ?: "User",
-            currentMonth = LocalDate.now().month.name.lowercase()
-                .replaceFirstChar { it.uppercase() }
+            currentMonth = LocalDate.now().month.name.lowercase().replaceFirstChar { it.uppercase() }
         )
         observeRealTimeData()
         loadOneTimeData()
     }
 
-    // ── Real-time observers ───────────────────────────────────────────────────
-
     private fun observeRealTimeData() {
-        // Combine accounts + recent transactions into a single update
         combine(
             dashboardRepo.getAccountsFlow(userId),
             dashboardRepo.getRecentTransactionsFlow(userId, limit = 8)
@@ -93,29 +92,30 @@ class DashboardViewModel @Inject constructor(
                 recentTransactions   = recentTxns,
                 isLoading            = false
             )
-            // Re-calculate net worth and Zakat whenever accounts update
             recalculateNetWorth()
             recalculateZakat()
         }
-        .catch { e -> _uiState.value = _uiState.value.copy(isLoading = false) }
+        .catch { _uiState.value = _uiState.value.copy(isLoading = false) }
         .launchIn(viewModelScope)
     }
 
-    // ── One-time data loads ───────────────────────────────────────────────────
+    fun loadOneTimeData(forceRefresh: Boolean = false) {
+        val now = System.currentTimeMillis()
+        // Skip if data is still fresh and this isn't a manual refresh
+        if (!forceRefresh && (now - lastOneTimeLoadMs) < CACHE_TTL_MS) return
 
-    fun loadOneTimeData() {
         viewModelScope.launch {
-            val now = LocalDate.now()
-            // All these run in parallel
-            val incomeDeferred      = async { dashboardRepo.getMonthlyIncome(userId, now.year, now.monthValue) }
-            val expenseDeferred     = async { dashboardRepo.getMonthlyExpense(userId, now.year, now.monthValue) }
-            val loansDeferred       = async { dashboardRepo.getActiveLoansTotal(userId) }
-            val lendingsDeferred    = async { dashboardRepo.getActiveLendingsTotal(userId) }
-            val goalsDeferred       = async { dashboardRepo.getGoalsTotal(userId) }
-            val investDeferred      = async { dashboardRepo.getInvestmentsTotal(userId) }
-            val jewellDeferred      = async { dashboardRepo.getJewelleryTotal(userId) }
-            val nisabDeferred       = async { dashboardRepo.getNisabThreshold(userId) }
-            val cycleDeferred       = async { dashboardRepo.getActiveZakatCycle(userId) }
+            val now2 = LocalDate.now()
+            // All 9 run in parallel — no change here, but now gated by TTL cache
+            val incomeDeferred   = async { dashboardRepo.getMonthlyIncome(userId, now2.year, now2.monthValue) }
+            val expenseDeferred  = async { dashboardRepo.getMonthlyExpense(userId, now2.year, now2.monthValue) }
+            val loansDeferred    = async { dashboardRepo.getActiveLoansTotal(userId) }
+            val lendingsDeferred = async { dashboardRepo.getActiveLendingsTotal(userId) }
+            val goalsDeferred    = async { dashboardRepo.getGoalsTotal(userId) }
+            val investDeferred   = async { dashboardRepo.getInvestmentsTotal(userId) }
+            val jewellDeferred   = async { dashboardRepo.getJewelleryTotal(userId) }
+            val nisabDeferred    = async { dashboardRepo.getNisabThreshold(userId) }
+            val cycleDeferred    = async { dashboardRepo.getActiveZakatCycle(userId) }
 
             _uiState.value = _uiState.value.copy(
                 thisMonthIncome  = incomeDeferred.await(),
@@ -128,7 +128,7 @@ class DashboardViewModel @Inject constructor(
                 nisabThreshold   = nisabDeferred.await(),
                 activeCycle      = cycleDeferred.await()
             )
-
+            lastOneTimeLoadMs = System.currentTimeMillis()
             recalculateNetWorth()
             recalculateZakat()
         }
@@ -137,43 +137,33 @@ class DashboardViewModel @Inject constructor(
     fun refresh() {
         _uiState.value = _uiState.value.copy(isRefreshing = true)
         viewModelScope.launch {
-            loadOneTimeData()
+            loadOneTimeData(forceRefresh = true)
             _uiState.value = _uiState.value.copy(isRefreshing = false)
         }
     }
 
-    // ── Calculations ──────────────────────────────────────────────────────────
-
     private fun recalculateNetWorth() {
         val s = _uiState.value
-        val netWorth = s.totalBalance +
-            s.totalInvestments +
-            s.totalJewellery +
-            s.totalLendings -
-            s.totalLoans
-        _uiState.value = s.copy(netWorth = netWorth)
+        _uiState.value = s.copy(
+            netWorth = s.totalBalance + s.totalInvestments + s.totalJewellery + s.totalLendings - s.totalLoans
+        )
     }
 
     private fun recalculateZakat() {
-        val s = _uiState.value
+        val s     = _uiState.value
         val cycle = s.activeCycle
-
         val status = ZakatUtils.determineZakatStatus(
             totalWealth          = s.totalPurifiedBalance + s.totalInvestments + s.totalJewellery + s.totalLendings,
             nisabThreshold       = s.nisabThreshold,
             activeCycleStartDate = cycle?.startDate,
             isCyclePaid          = cycle?.status == "paid"
         )
-
         val daysLeft    = if (cycle != null) ZakatUtils.daysUntilHijriAnniversary(cycle.startDate) else 0L
         val zakatAmount = if (status == ZakatStatus.DUE)
             ZakatUtils.calculateZakat(s.totalPurifiedBalance + s.totalInvestments + s.totalJewellery) else 0.0
-
         val hijriStr = if (cycle != null) {
-            try {
-                val h = ZakatUtils.gregorianToHijri(cycle.startDate)
-                ZakatUtils.formatHijriDate(h)
-            } catch (e: Exception) { "" }
+            try { ZakatUtils.formatHijriDate(ZakatUtils.gregorianToHijri(cycle.startDate)) }
+            catch (e: Exception) { "" }
         } else ""
 
         _uiState.value = _uiState.value.copy(
