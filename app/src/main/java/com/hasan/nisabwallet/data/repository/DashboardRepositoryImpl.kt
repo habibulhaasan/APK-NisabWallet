@@ -6,16 +6,18 @@ import com.hasan.nisabwallet.data.firebase.FirestorePaths
 import com.hasan.nisabwallet.data.firebase.snapshotFlow
 import com.hasan.nisabwallet.data.model.Account
 import com.hasan.nisabwallet.data.model.Transaction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
 import javax.inject.Inject
 
 class DashboardRepositoryImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : DashboardRepository {
-
-    // Real-time flows are fine as-is — Firestore handles these efficiently
 
     override fun getAccountsFlow(userId: String): Flow<List<Account>> =
         FirestorePaths.accounts(db, userId)
@@ -23,7 +25,7 @@ class DashboardRepositoryImpl @Inject constructor(
             .map { snap ->
                 snap.documents.mapNotNull { it.toObject(Account::class.java)?.copy(id = it.id) }
             }
-            .flowOn(Dispatchers.Default) // Move mapping off main thread
+            .flowOn(Dispatchers.Default)
 
     override fun getRecentTransactionsFlow(userId: String, limit: Int): Flow<List<Transaction>> =
         FirestorePaths.transactions(db, userId)
@@ -41,7 +43,7 @@ class DashboardRepositoryImpl @Inject constructor(
             FirestorePaths.transactions(db, userId)
                 .whereEqualTo("type", "Income")
                 .whereGreaterThanOrEqualTo("date", start)
-                .whereLessThan("date", end) // FIX: use strict less-than on first day of NEXT month
+                .whereLessThan("date", end)
                 .get().await()
                 .documents
                 .sumOf { it.getDouble("amount") ?: 0.0 }
@@ -133,11 +135,9 @@ class DashboardRepositoryImpl @Inject constructor(
                 ?.getDouble("nisabThreshold") ?: 0.0
         }
 
-    // FIX: Use first day of next month as exclusive upper bound
-    // This correctly handles Feb (28/29 days), Apr/Jun/Sep/Nov (30 days)
     private fun monthRange(year: Int, month: Int): Pair<String, String> {
         val startDate = LocalDate.of(year, month, 1)
-        val endDate   = startDate.plusMonths(1) // First day of next month
+        val endDate   = startDate.plusMonths(1)
         return startDate.toString() to endDate.toString()
     }
 }

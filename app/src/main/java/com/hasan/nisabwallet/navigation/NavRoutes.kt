@@ -1,26 +1,28 @@
 package com.hasan.nisabwallet.navigation
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBalance
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.ui.graphics.vector.ImageVector
+
 sealed class Screen(val route: String) {
-    // Auth
     object Login           : Screen("login")
     object Register        : Screen("register")
     object ForgotPassword  : Screen("forgot_password")
-
-    // Bottom Nav Roots
     object Dashboard       : Screen("dashboard")
     object Transactions    : Screen("transactions")
     object Accounts        : Screen("accounts")
     object More            : Screen("more")
-
-    // Finance (accessible from drawer/more)
     object Transfer        : Screen("transfer")
     object Categories      : Screen("categories")
-
-    // Add inside sealed class Screen:
-    object DailyExpense  : Screen("daily_expense")
-    object MonthlyGrocery: Screen("monthly_grocery")
-
-    // Feature modules
+    object DailyExpense    : Screen("daily_expense")
+    object MonthlyGrocery  : Screen("monthly_grocery")
     object Budgets         : Screen("budgets")
     object BudgetDetail    : Screen("budget_detail/{categoryId}") {
         fun createRoute(categoryId: String) = "budget_detail/$categoryId"
@@ -64,35 +66,34 @@ sealed class Screen(val route: String) {
     object UserGuide       : Screen("user_guide")
 }
 
-// Bottom navigation items — only 4 to keep it clean
 sealed class BottomNavItem(
     val screen: Screen,
     val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector
+    val icon: ImageVector,
+    val selectedIcon: ImageVector
 ) {
     object Home : BottomNavItem(
         Screen.Dashboard,
         "Home",
-        androidx.compose.material.icons.Icons.Outlined.Home,
-        androidx.compose.material.icons.Icons.Filled.Home
+        Icons.Outlined.Home,
+        Icons.Filled.Home
     )
     object Transactions : BottomNavItem(
         Screen.Transactions,
         "Transactions",
-        androidx.compose.material.icons.Icons.Outlined.Receipt,
-        androidx.compose.material.icons.Icons.Filled.Receipt
+        Icons.Outlined.ReceiptLong,
+        Icons.Filled.Receipt
     )
     object Accounts : BottomNavItem(
         Screen.Accounts,
         "Accounts",
-        androidx.compose.material.icons.Icons.Outlined.AccountBalance,
-        androidx.compose.material.icons.Icons.Filled.AccountBalance
+        Icons.Outlined.AccountBalanceWallet,
+        Icons.Filled.AccountBalance
     )
     object More : BottomNavItem(
         Screen.More,
         "More",
-        androidx.compose.material.icons.Icons.Outlined.GridView,
-        androidx.compose.material.icons.Icons.Filled.GridView
+        Icons.Outlined.GridView,
+        Icons.Filled.GridView
     )
 }

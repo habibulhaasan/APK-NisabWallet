@@ -6,6 +6,7 @@ import androidx.work.Configuration
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreSettings
 import com.google.firebase.firestore.PersistentCacheSettings
+import com.hasan.nisabwallet.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
 

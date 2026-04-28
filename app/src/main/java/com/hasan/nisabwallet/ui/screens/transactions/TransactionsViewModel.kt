@@ -11,36 +11,35 @@ import com.hasan.nisabwallet.data.repository.CategoryRepository
 import com.hasan.nisabwallet.data.repository.TransactionRepository
 import com.hasan.nisabwallet.ui.viewmodel.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 data class TransactionsUiState(
-    val allTransactions: List<Transaction>  = emptyList(),
+    val allTransactions: List<Transaction>      = emptyList(),
     val filteredTransactions: List<Transaction> = emptyList(),
-    val accounts: List<Account>             = emptyList(),
-    val categories: List<Category>          = emptyList(),
-    val filter: TransactionFilter           = TransactionFilter(),
-    val isLoading: Boolean                  = true,
-    val isSaving: Boolean                   = false,
-    val showFormSheet: Boolean              = false,
-    val showDeleteDialog: Boolean           = false,
-    val editingTransaction: Transaction?    = null,
-    val deletingTransaction: Transaction?   = null,
-    val errorMessage: String?               = null,
-    val successMessage: String?             = null,
-    // Summary
-    val totalIncome: Double                 = 0.0,
-    val totalExpense: Double                = 0.0,
-    // Form fields
-    val formType: String                    = "Expense",
-    val formAmount: String                  = "",
-    val formAccountId: String               = "",
-    val formCategoryId: String              = "",
-    val formDescription: String             = "",
-    val formDate: String                    = LocalDate.now().toString()
+    val accounts: List<Account>                 = emptyList(),
+    val categories: List<Category>              = emptyList(),
+    val filter: TransactionFilter               = TransactionFilter(),
+    val isLoading: Boolean                      = true,
+    val isSaving: Boolean                       = false,
+    val showFormSheet: Boolean                  = false,
+    val showDeleteDialog: Boolean               = false,
+    val editingTransaction: Transaction?        = null,
+    val deletingTransaction: Transaction?       = null,
+    val errorMessage: String?                   = null,
+    val successMessage: String?                 = null,
+    val totalIncome: Double                     = 0.0,
+    val totalExpense: Double                    = 0.0,
+    val formType: String                        = "Expense",
+    val formAmount: String                      = "",
+    val formAccountId: String                   = "",
+    val formCategoryId: String                  = "",
+    val formDescription: String                 = "",
+    val formDate: String                        = LocalDate.now().toString()
 )
 
 @HiltViewModel
@@ -55,7 +54,6 @@ class TransactionsViewModel @Inject constructor(
     val uiState = _uiState.asStateFlow()
     private val userId get() = auth.currentUser?.uid ?: ""
 
-    // Separate state flows so we can combine + debounce them
     private val _allTransactions = MutableStateFlow<List<Transaction>>(emptyList())
     private val _filter          = MutableStateFlow(TransactionFilter())
 
@@ -79,19 +77,19 @@ class TransactionsViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
-    // Combine the raw list + filter, debounce search input, run on Default dispatcher
     private fun observeFilteredResults() {
-        combine(_allTransactions, _filter) { txns, filter -> txns to filter }
-            .debounce(150L) // Prevents jank during fast filter changes or search typing
+        combine(_allTransactions, _filter) { txns: List<Transaction>, filter: TransactionFilter ->
+            txns to filter
+        }
+            .debounce(150L)
             .map { (txns, filter) ->
-                // Move filtering to background thread — never blocks the UI
                 withContext(Dispatchers.Default) { applyFilter(txns, filter) }
             }
             .onEach { filtered ->
                 _uiState.value = _uiState.value.copy(
                     filteredTransactions = filtered,
-                    totalIncome          = filtered.filter { it.isIncome  }.sumOf { it.amount },
-                    totalExpense         = filtered.filter { it.isExpense }.sumOf { it.amount }
+                    totalIncome  = filtered.filter { it.isIncome  }.sumOf { it.amount },
+                    totalExpense = filtered.filter { it.isExpense }.sumOf { it.amount }
                 )
             }
             .launchIn(viewModelScope)
@@ -136,7 +134,6 @@ class TransactionsViewModel @Inject constructor(
                 t.accountName.contains(filter.searchQuery, ignoreCase = true))
         }
 
-    // All form and CRUD functions remain exactly the same as before
     fun showAddForm(type: String = "Expense") {
         val accounts = _uiState.value.accounts
         _uiState.value = _uiState.value.copy(
@@ -209,17 +206,17 @@ class TransactionsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, errorMessage = null)
             val txn = Transaction(
-                id           = s.editingTransaction?.id ?: "",
-                type         = s.formType,
-                amount       = amount!!,
-                accountId    = s.formAccountId,
-                accountName  = account.name,
-                categoryId   = s.formCategoryId,
-                categoryName = category.name,
+                id            = s.editingTransaction?.id ?: "",
+                type          = s.formType,
+                amount        = amount!!,
+                accountId     = s.formAccountId,
+                accountName   = account.name,
+                categoryId    = s.formCategoryId,
+                categoryName  = category.name,
                 categoryColor = category.color,
-                description  = s.formDescription.trim(),
-                date         = s.formDate,
-                isRiba       = category.isRiba
+                description   = s.formDescription.trim(),
+                date          = s.formDate,
+                isRiba        = category.isRiba
             )
             val result = if (s.editingTransaction == null) {
                 transactionRepo.addTransaction(userId, txn, account.balance, category.isRiba)

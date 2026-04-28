@@ -9,6 +9,7 @@ import com.hasan.nisabwallet.data.repository.BudgetRepository
 import com.hasan.nisabwallet.data.repository.CategoryRepository
 import com.hasan.nisabwallet.ui.viewmodel.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -30,12 +31,10 @@ data class BudgetsUiState(
     val selectedMonth: Int               = LocalDate.now().monthValue,
     val errorMessage: String?            = null,
     val successMessage: String?          = null,
-    // Form
     val formCategoryId: String           = "",
     val formAmount: String               = "",
     val formRollover: Boolean            = false,
     val formNotes: String                = "",
-    // Totals
     val totalBudgeted: Double            = 0.0,
     val totalSpent: Double               = 0.0
 )
@@ -71,9 +70,7 @@ class BudgetsViewModel @Inject constructor(
     }
 
     private fun observeBudgets() {
-        // Cancel the previous collector before starting a new one
         budgetObserverJob?.cancel()
-
         val s = _uiState.value
         budgetObserverJob = budgetRepo.getBudgetsFlow(userId, s.selectedYear, s.selectedMonth)
             .onEach { budgets ->
@@ -98,9 +95,9 @@ class BudgetsViewModel @Inject constructor(
                 b.copy(spent = spent[b.categoryId] ?: 0.0)
             }
             _uiState.value = _uiState.value.copy(
-                spentMap      = spent,
-                budgets       = enriched,
-                totalSpent    = enriched.sumOf { it.spent }
+                spentMap   = spent,
+                budgets    = enriched,
+                totalSpent = enriched.sumOf { it.spent }
             )
         }
     }
@@ -115,34 +112,11 @@ class BudgetsViewModel @Inject constructor(
             selectedYear  = d.year,
             selectedMonth = d.monthValue,
             isLoading     = true,
-            budgets       = emptyList() // Clear stale data immediately
-        )
-        // observeBudgets() now safely cancels the previous Job before starting the new one
-        observeBudgets()
-        loadSpent()
-    }
-
-}
-
-
-    // ── Month navigation ──────────────────────────────────────────────────────
-
-    fun prevMonth() = changeMonth(-1)
-    fun nextMonth() = changeMonth(1)
-
-    private fun changeMonth(delta: Int) {
-        val s   = _uiState.value
-        val d   = LocalDate.of(s.selectedYear, s.selectedMonth, 1).plusMonths(delta.toLong())
-        _uiState.value = s.copy(
-            selectedYear  = d.year,
-            selectedMonth = d.monthValue,
-            isLoading     = true
+            budgets       = emptyList()
         )
         observeBudgets()
         loadSpent()
     }
-
-    // ── Sheet control ─────────────────────────────────────────────────────────
 
     fun showAddSheet() {
         _uiState.value = _uiState.value.copy(
@@ -168,25 +142,23 @@ class BudgetsViewModel @Inject constructor(
         )
     }
 
-    fun dismissSheet()       { _uiState.value = _uiState.value.copy(showFormSheet = false, editingBudget = null) }
+    fun dismissSheet()      { _uiState.value = _uiState.value.copy(showFormSheet = false, editingBudget = null) }
     fun showDeleteDialog(b: Budget) { _uiState.value = _uiState.value.copy(showDeleteDialog = true, deletingBudget = b) }
-    fun dismissDeleteDialog(){ _uiState.value = _uiState.value.copy(showDeleteDialog = false, deletingBudget = null) }
-    fun showCopyDialog()     { _uiState.value = _uiState.value.copy(showCopyDialog = true) }
-    fun dismissCopyDialog()  { _uiState.value = _uiState.value.copy(showCopyDialog = false) }
-    fun clearMessages()      { _uiState.value = _uiState.value.copy(errorMessage = null, successMessage = null) }
-    fun onCategoryChange(v: String) { _uiState.value = _uiState.value.copy(formCategoryId = v) }
-    fun onAmountChange(v: String)   { _uiState.value = _uiState.value.copy(formAmount = v) }
-    fun onRolloverChange(v: Boolean){ _uiState.value = _uiState.value.copy(formRollover = v) }
-    fun onNotesChange(v: String)    { _uiState.value = _uiState.value.copy(formNotes = v) }
-
-    // ── CRUD ──────────────────────────────────────────────────────────────────
+    fun dismissDeleteDialog() { _uiState.value = _uiState.value.copy(showDeleteDialog = false, deletingBudget = null) }
+    fun showCopyDialog()    { _uiState.value = _uiState.value.copy(showCopyDialog = true) }
+    fun dismissCopyDialog() { _uiState.value = _uiState.value.copy(showCopyDialog = false) }
+    fun clearMessages()     { _uiState.value = _uiState.value.copy(errorMessage = null, successMessage = null) }
+    fun onCategoryChange(v: String)  { _uiState.value = _uiState.value.copy(formCategoryId = v) }
+    fun onAmountChange(v: String)    { _uiState.value = _uiState.value.copy(formAmount = v) }
+    fun onRolloverChange(v: Boolean) { _uiState.value = _uiState.value.copy(formRollover = v) }
+    fun onNotesChange(v: String)     { _uiState.value = _uiState.value.copy(formNotes = v) }
 
     fun saveBudget() {
         val s      = _uiState.value
         val amount = s.formAmount.toDoubleOrNull()
         when {
-            s.formCategoryId.isEmpty() -> { _uiState.value = s.copy(errorMessage = "Select a category"); return }
-            amount == null || amount <= 0 -> { _uiState.value = s.copy(errorMessage = "Enter a valid amount"); return }
+            s.formCategoryId.isEmpty()         -> { _uiState.value = s.copy(errorMessage = "Select a category"); return }
+            amount == null || amount <= 0       -> { _uiState.value = s.copy(errorMessage = "Enter a valid amount"); return }
         }
         val cat = s.categories.find { it.id == s.formCategoryId } ?: return
 
@@ -215,7 +187,7 @@ class BudgetsViewModel @Inject constructor(
                     successMessage = if (s.editingBudget == null) "Budget added" else "Budget updated"
                 )
                 is Result.Error   -> _uiState.value = _uiState.value.copy(
-                    isSaving     = false, errorMessage = result.message
+                    isSaving = false, errorMessage = result.message
                 )
                 else -> Unit
             }

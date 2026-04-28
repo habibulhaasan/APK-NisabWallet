@@ -55,6 +55,9 @@ import com.hasan.nisabwallet.ui.screens.guide.UserGuideScreen
 import com.hasan.nisabwallet.ui.screens.more.MoreScreen
 import com.hasan.nisabwallet.ui.viewmodel.AuthState
 
+import com.hasan.nisabwallet.ui.screens.dailyexpense.DailyExpenseScreen
+import com.hasan.nisabwallet.ui.screens.grocery.MonthlyGroceryScreen
+
 // Routes where the bottom bar should be hidden
 private val bottomBarHiddenRoutes = setOf(
     Screen.Login.route,

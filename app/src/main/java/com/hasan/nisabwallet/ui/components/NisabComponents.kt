@@ -266,3 +266,61 @@ fun EmptyState(
         action?.invoke()
     }
 }
+
+// Add this to the BOTTOM of NisabComponents.kt
+// (keep the existing private one in TransactionsScreen.kt temporarily, 
+//  or remove it — both work since Kotlin allows same name in different scopes)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SimpleDropdown(
+    label: String,
+    selectedId: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit,
+    leadingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = options.find { it.first == selectedId }?.second ?: ""
+
+    ExposedDropdownMenuBox(
+        expanded        = expanded,
+        onExpandedChange = { expanded = it },
+        modifier        = modifier
+    ) {
+        OutlinedTextField(
+            value         = selectedLabel,
+            onValueChange = {},
+            readOnly      = true,
+            label         = { Text(label) },
+            leadingIcon   = leadingIcon?.let { { Icon(it, null, Modifier.size(20.dp)) } },
+            trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier      = Modifier.fillMaxWidth().menuAnchor(),
+            shape         = RoundedCornerShape(12.dp)
+        )
+        ExposedDropdownMenu(
+            expanded        = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            if (options.isEmpty()) {
+                DropdownMenuItem(
+                    text    = { Text("No options available",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                    onClick = {}
+                )
+            } else {
+                options.forEach { (id, name) ->
+                    DropdownMenuItem(
+                        text         = { Text(name) },
+                        onClick      = { onSelected(id); expanded = false },
+                        trailingIcon = if (id == selectedId) {
+                            { Icon(Icons.Default.Check, null, Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary) }
+                        } else null
+                    )
+                }
+            }
+        }
+    }
+}

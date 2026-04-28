@@ -26,7 +26,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.hasan.nisabwallet.data.model.Budget
 import com.hasan.nisabwallet.ui.components.*
-import com.hasan.nisabwallet.ui.screens.transactions.SimpleDropdown
+import com.hasan.nisabwallet.ui.components.SimpleDropdown
 import com.hasan.nisabwallet.ui.theme.Emerald600
 import java.time.Month
 

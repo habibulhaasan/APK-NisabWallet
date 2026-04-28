@@ -36,7 +36,7 @@ import com.hasan.nisabwallet.data.model.Transaction
 import com.hasan.nisabwallet.data.repository.AccountRepository
 import com.hasan.nisabwallet.data.safeCall
 import com.hasan.nisabwallet.ui.components.*
-import com.hasan.nisabwallet.ui.screens.transactions.SimpleDropdown
+import com.hasan.nisabwallet.ui.components.SimpleDropdown
 import com.hasan.nisabwallet.ui.theme.Emerald600
 import com.hasan.nisabwallet.ui.viewmodel.BaseViewModel
 import dagger.hilt.android.lifecycle.HiltViewModel

@@ -25,7 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.hasan.nisabwallet.data.model.Loan
 import com.hasan.nisabwallet.ui.components.*
-import com.hasan.nisabwallet.ui.screens.transactions.SimpleDropdown
+import com.hasan.nisabwallet.ui.components.SimpleDropdown
 import com.hasan.nisabwallet.ui.theme.Emerald600
 
 @OptIn(ExperimentalMaterial3Api::class)

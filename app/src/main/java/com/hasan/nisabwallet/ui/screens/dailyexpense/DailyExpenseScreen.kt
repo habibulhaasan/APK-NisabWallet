@@ -31,8 +31,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.hasan.nisabwallet.ui.components.*
-import com.hasan.nisabwallet.ui.screens.transactions.SimpleDropdown
 import com.hasan.nisabwallet.ui.theme.Emerald600
+import com.hasan.nisabwallet.data.model.ExpenseTrackerMonthData
+import com.hasan.nisabwallet.ui.components.SimpleDropdown
 import java.time.LocalDate
 import java.time.YearMonth
 

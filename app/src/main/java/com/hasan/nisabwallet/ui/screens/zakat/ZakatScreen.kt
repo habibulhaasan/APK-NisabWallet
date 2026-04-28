@@ -30,7 +30,7 @@ import com.hasan.nisabwallet.data.Result
 import com.hasan.nisabwallet.data.model.*
 import com.hasan.nisabwallet.data.repository.*
 import com.hasan.nisabwallet.ui.components.*
-import com.hasan.nisabwallet.ui.screens.transactions.SimpleDropdown
+import com.hasan.nisabwallet.ui.components.SimpleDropdown
 import com.hasan.nisabwallet.ui.theme.Emerald600
 import com.hasan.nisabwallet.ui.viewmodel.BaseViewModel
 import com.hasan.nisabwallet.utils.ZakatStatus
