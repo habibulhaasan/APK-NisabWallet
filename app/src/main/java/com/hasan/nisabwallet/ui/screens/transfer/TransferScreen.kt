@@ -259,7 +259,7 @@ private fun AccountMiniCard(name: String, balance: Double, color: Color) {
 
 // ── Transfer history item ─────────────────────────────────────────────────────
 @Composable
-private fun TransferHistoryItem(transfer: Transfer, onDelete: () -> Unit) {
+internal fun TransferHistoryItem(transfer: Transfer, onDelete: () -> Unit) {
     Card(
         modifier  = Modifier.fillMaxWidth(),
         shape     = RoundedCornerShape(14.dp),
