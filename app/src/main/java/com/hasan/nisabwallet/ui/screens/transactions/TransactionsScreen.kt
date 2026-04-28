@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Notes
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.automirrored.filled.TrendingDown
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.*
@@ -28,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
 import com.hasan.nisabwallet.data.model.Transaction
 import com.hasan.nisabwallet.ui.components.*
 import com.hasan.nisabwallet.ui.screens.transfer.TransferUiState
@@ -45,7 +45,6 @@ private const val TAB_TRANSFER     = 1
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionsScreen(
-    navController: NavController,
     viewModel: TransactionsViewModel = hiltViewModel(),
     transferViewModel: TransferViewModel = hiltViewModel()
 ) {
@@ -97,7 +96,6 @@ fun TransactionsScreen(
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                // FIX: ReceiptLong → AutoMirrored
                                 Icon(Icons.AutoMirrored.Filled.ReceiptLong, null, Modifier.size(16.dp))
                                 Text("Transactions",
                                     fontWeight = if (selectedTab == TAB_TRANSACTIONS)
@@ -128,10 +126,10 @@ fun TransactionsScreen(
             transitionSpec = {
                 if (targetState > initialState) {
                     slideInHorizontally { it } + fadeIn() togetherWith
-                    slideOutHorizontally { -it } + fadeOut()
+                            slideOutHorizontally { -it } + fadeOut()
                 } else {
                     slideInHorizontally { -it } + fadeIn() togetherWith
-                    slideOutHorizontally { it } + fadeOut()
+                            slideOutHorizontally { it } + fadeOut()
                 }
             },
             modifier = Modifier.padding(padding),
@@ -232,11 +230,11 @@ private fun TransactionListContent(
             LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp)
             ) {
-                grouped.forEach { (date, txns) ->
+                grouped.forEach { (date, transactions) ->
                     item(key = "hdr_$date") {
-                        DateHeader(date, txns.sumOf { if (it.isIncome) it.amount else -it.amount })
+                        DateHeader(date, transactions.sumOf { if (it.isIncome) it.amount else -it.amount })
                     }
-                    items(txns, key = { it.id }) { txn ->
+                    items(transactions, key = { it.id }) { txn ->
                         TransactionItem(txn,
                             onEdit   = { viewModel.showEditForm(txn) },
                             onDelete = { viewModel.showDeleteDialog(txn) })
@@ -273,7 +271,6 @@ private fun TransferContent(
                     fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 4.dp))
             }
             items(uiState.transfers, key = { it.id }) { transfer ->
-                // FIX: now accessible because TransferHistoryItem is 'internal'
                 TransferHistoryItem(transfer, onDelete = { viewModel.showDeleteDialog(transfer) })
             }
         } else {
@@ -308,7 +305,6 @@ private fun TransferFormCard(uiState: TransferUiState, viewModel: TransferViewMo
                     val from = uiState.accounts.find { it.id == uiState.fromAccountId }
                     AccountPill(from?.name ?: "Select", from?.balance ?: 0.0, Color(0xFFEF4444))
                 }
-                // FIX: use AutoMirrored ArrowForward
                 Icon(Icons.AutoMirrored.Filled.ArrowForward, null, Modifier.size(20.dp),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Column(Modifier.weight(1f)) {
@@ -330,7 +326,6 @@ private fun TransferFormCard(uiState: TransferUiState, viewModel: TransferViewMo
 
             NisabTextField(uiState.amount, viewModel::onAmountChange, "Amount (৳)",
                 leadingIcon = Icons.Default.MonetizationOn, keyboardType = KeyboardType.Decimal)
-            // FIX: AutoMirrored.Filled.Notes
             NisabTextField(uiState.description, viewModel::onDescriptionChange, "Note (optional)",
                 leadingIcon = Icons.AutoMirrored.Filled.Notes)
             NisabTextField(uiState.date, viewModel::onDateChange, "Date (yyyy-MM-dd)",
@@ -462,7 +457,6 @@ private fun TransactionFormSheet(
                             if (selected) color else MaterialTheme.colorScheme.outline),
                         shape    = RoundedCornerShape(12.dp)
                     ) {
-                        // FIX: AutoMirrored TrendingUp / TrendingDown
                         Icon(
                             if (type == "Income") Icons.AutoMirrored.Filled.TrendingUp
                             else Icons.AutoMirrored.Filled.TrendingDown,
@@ -487,7 +481,6 @@ private fun TransactionFormSheet(
         SimpleDropdown("Category", uiState.formCategoryId,
             uiState.categories.filter { it.type == uiState.formType }.map { it.id to it.name },
             viewModel::onCategoryChange, Icons.Default.Category)
-        // FIX: AutoMirrored Notes
         NisabTextField(uiState.formDescription, viewModel::onDescriptionChange,
             "Description (optional)", leadingIcon = Icons.AutoMirrored.Filled.Notes, singleLine = false)
         NisabTextField(uiState.formDate, viewModel::onDateChange,
@@ -497,8 +490,6 @@ private fun TransactionFormSheet(
             viewModel::saveTransaction, isLoading = uiState.isSaving)
     }
 }
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 private fun formatDateHeader(dateStr: String): String = try {
     val date  = LocalDate.parse(dateStr)

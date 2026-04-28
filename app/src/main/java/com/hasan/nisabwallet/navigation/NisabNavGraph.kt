@@ -132,7 +132,7 @@ fun NisabNavGraph(
 
             // Bottom nav roots — popUpTo keeps back stack clean
             composable(Screen.Dashboard.route)    { DashboardScreen(navController) }
-            composable(Screen.Transactions.route) { TransactionsScreen(navController) }
+            composable(Screen.Transactions.route) { TransactionsScreen() }
             composable(Screen.Accounts.route)     { AccountsScreen(navController) }
             composable(Screen.More.route)         { MoreScreen(navController) }
 
